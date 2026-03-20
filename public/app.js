@@ -53,9 +53,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 createBtn.addEventListener('click', async () => {
   const name = createNameEl.value.trim();
   if (!name) { showError('Please enter your name.'); return; }
+  setJoinLoading(true);
   const res = await fetch('/api/new-room');
   const { roomId } = await res.json();
-  enterRoom(roomId, name);
+  requestJoin(roomId, name, true);
 });
 createNameEl.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
 
@@ -65,7 +66,8 @@ joinBtn.addEventListener('click', () => {
   const name   = joinNameEl.value.trim();
   if (!roomId) { showError('Please enter a room number.'); return; }
   if (!name)   { showError('Please enter your name.'); return; }
-  enterRoom(roomId, name);
+  setJoinLoading(true);
+  requestJoin(roomId, name, false);
 });
 joinRoomIdEl.addEventListener('keydown', e => { if (e.key === 'Enter') joinBtn.click(); });
 joinNameEl.addEventListener('keydown',   e => { if (e.key === 'Enter') joinBtn.click(); });
@@ -74,22 +76,31 @@ function showError(msg) {
   joinError.textContent = msg;
 }
 
-// ── Enter room ──
-function enterRoom(roomId, name) {
+function setJoinLoading(loading) {
+  createBtn.disabled = loading;
+  joinBtn.disabled   = loading;
+  joinError.textContent = '';
+}
+
+// ── Request join (waits for server confirmation) ──
+function requestJoin(roomId, name, create) {
   myRoomId = roomId;
   myName   = name;
-  myVote   = null;
+  socket.emit('join-room', { roomId, name, create });
+}
 
-  roomLabel.textContent = 'Room ' + formatRoomId(roomId);
-  userAvatar.textContent = initials(name);
+// ── Enter room (called after server confirms join) ──
+function enterRoom(roomId) {
+  myVote = null;
+
+  roomLabel.textContent  = 'Room ' + formatRoomId(roomId);
+  userAvatar.textContent = initials(myName);
 
   joinScreen.classList.remove('active');
   roomScreen.classList.add('active');
 
-  socket.emit('join-room', { roomId, name });
   buildCards();
 
-  // Check URL for room param and update
   const url = new URL(window.location.href);
   url.searchParams.set('room', roomId);
   window.history.replaceState({}, '', url);
@@ -195,7 +206,13 @@ socket.on('room-state', (state) => {
 });
 
 socket.on('joined', ({ roomId }) => {
-  // already handled
+  setJoinLoading(false);
+  enterRoom(roomId);
+});
+
+socket.on('join-error', ({ message }) => {
+  setJoinLoading(false);
+  showError(message);
 });
 
 // ── Render room ──

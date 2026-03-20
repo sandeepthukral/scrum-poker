@@ -42,15 +42,21 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentName = null;
 
-  socket.on('join-room', ({ roomId, name }) => {
+  socket.on('join-room', ({ roomId, name, create }) => {
     if (!roomId || !name) return;
+
+    // Reject joins to non-existent rooms
+    if (!create && !rooms[roomId]) {
+      socket.emit('join-error', { message: `Room ${roomId} does not exist. Please check the room number and try again.` });
+      return;
+    }
 
     // Leave previous room
     if (currentRoom) {
       socket.leave(currentRoom);
       if (rooms[currentRoom]) {
         delete rooms[currentRoom].users[socket.id];
-        io.to(currentRoom).emit('room-state', getRoomState(currentRoom));
+        broadcastRoomState(currentRoom);
       }
     }
 
@@ -58,7 +64,7 @@ io.on('connection', (socket) => {
     currentName = name;
 
     if (!rooms[roomId]) {
-      // First joiner becomes the owner
+      // First joiner (creator) becomes the owner
       rooms[roomId] = { users: {}, ownerId: socket.id, revealed: false, topic: '' };
     }
 
