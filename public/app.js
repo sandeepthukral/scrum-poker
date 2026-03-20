@@ -183,6 +183,14 @@ topicInput.addEventListener('input', () => {
 socket.on('room-state', (state) => {
   roomState = state;
   amIOwner = state.isOwner;
+
+  // Sync local vote with server — handles delete-estimates resetting our card
+  const me = state.users.find(u => u.name === myName);
+  if (me && me.vote === null) {
+    myVote = null;
+    updateCardHighlight();
+  }
+
   renderRoom(state);
 });
 
