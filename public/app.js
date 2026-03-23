@@ -227,6 +227,7 @@ function renderRoom(state) {
   } else {
     topicDisplay.textContent = '';
     topicDisplay.classList.remove('has-topic');
+    if (topicInput.value !== '') topicInput.value = '';
   }
 
   // Participant count
