@@ -317,7 +317,7 @@ function renderRoom(state) {
       const min = Math.min(...numericVotes);
       const max = Math.max(...numericVotes);
       const allSame = numericVotes.every(v => v === numericVotes[0]);
-      statAvg.textContent = Number.isInteger(avg) ? avg : avg.toFixed(1);
+      statAvg.textContent = nearestFibonacci(avg);
       statMin.textContent = min;
       statMax.textContent = max;
       statConsensus.textContent = allSame ? '✓ Yes' : '✗ No';

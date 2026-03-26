@@ -1,4 +1,5 @@
 /* ── Scrum Poker Test Suite ── */
+const { nearestFibonacci } = require('./public/utils.js');
 const http = require('http');
 const { Server } = require('socket.io');
 const { io: Client } = require('socket.io-client');
@@ -161,6 +162,37 @@ function doAndWaitState(socket, action) {
 
 // ── Tests ──
 async function runTests(port, url) {
+
+  // ── nearestFibonacci ──
+  console.log('\n[Unit] nearestFibonacci');
+  // Exact Fibonacci numbers
+  assert(nearestFibonacci(1)   === 1,   'exact: 1 → 1');
+  assert(nearestFibonacci(2)   === 2,   'exact: 2 → 2');
+  assert(nearestFibonacci(3)   === 3,   'exact: 3 → 3');
+  assert(nearestFibonacci(5)   === 5,   'exact: 5 → 5');
+  assert(nearestFibonacci(8)   === 8,   'exact: 8 → 8');
+  assert(nearestFibonacci(13)  === 13,  'exact: 13 → 13');
+  assert(nearestFibonacci(21)  === 21,  'exact: 21 → 21');
+  assert(nearestFibonacci(34)  === 34,  'exact: 34 → 34');
+  assert(nearestFibonacci(55)  === 55,  'exact: 55 → 55');
+  assert(nearestFibonacci(89)  === 89,  'exact: 89 → 89');
+  // Values closer to lower Fibonacci
+  assert(nearestFibonacci(0.5) === 1,   '0.5 → 1 (below sequence start)');
+  assert(nearestFibonacci(6)   === 5,   '6 → 5 (6-5=1 < 8-6=2)');
+  assert(nearestFibonacci(10)  === 8,   '10 → 8 (10-8=2 < 13-10=3)');
+  assert(nearestFibonacci(18)  === 21,  '18 → 21 (21-18=3 < 18-13=5)');
+  assert(nearestFibonacci(96)  === 89,  '96 → 89 (96-89=7 < 144-96=48)');
+  // Values closer to higher Fibonacci
+  assert(nearestFibonacci(7)   === 8,   '7 → 8 (8-7=1 < 7-5=2)');
+  assert(nearestFibonacci(11)  === 13,  '11 → 13 (13-11=2 < 11-8=3)');
+  assert(nearestFibonacci(100) === 89,  '100 → 89 (100-89=11 < 144-100=44)');
+  // Ties go to the larger Fibonacci
+  assert(nearestFibonacci(1.5) === 2,   'tie 1.5 → 2 (equidistant, larger wins)');
+  assert(nearestFibonacci(4)   === 5,   'tie 4 → 5 (equidistant 3 and 5, larger wins)');
+  assert(nearestFibonacci(17)  === 21,  'tie 17 → 21 (equidistant 13 and 21, larger wins)');
+  // Edge cases
+  assert(nearestFibonacci(0)   === 1,   '0 → 1 (below sequence)');
+  assert(nearestFibonacci(-5)  === 1,   'negative → 1');
 
   // ── /api/new-room ──
   console.log('\n[API] /api/new-room');
