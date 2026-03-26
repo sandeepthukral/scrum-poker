@@ -15,6 +15,7 @@ let amIOwner = false;
 const joinScreen   = document.getElementById('join-screen');
 const roomScreen   = document.getElementById('room-screen');
 const joinError    = document.getElementById('join-error');
+const createRoomIdEl = document.getElementById('create-room-id');
 const createNameEl = document.getElementById('create-name');
 const createBtn    = document.getElementById('create-btn');
 const joinRoomIdEl = document.getElementById('join-room-id');
@@ -54,9 +55,14 @@ createBtn.addEventListener('click', async () => {
   const name = createNameEl.value.trim();
   if (!name) { showError('Please enter your name.'); return; }
   setJoinLoading(true);
-  const res = await fetch('/api/new-room');
-  const { roomId } = await res.json();
-  requestJoin(roomId, name, true);
+  const prefilledRoomId = createRoomIdEl.value.trim();
+  if (prefilledRoomId) {
+    requestJoin(prefilledRoomId, name, true);
+  } else {
+    const res = await fetch('/api/new-room');
+    const { roomId } = await res.json();
+    requestJoin(roomId, name, true);
+  }
 });
 createNameEl.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
 
@@ -338,9 +344,10 @@ function escapeHtml(str) {
   const params = new URLSearchParams(window.location.search);
   const room = params.get('room');
   if (room) {
-    // Switch to join tab and pre-fill room
-    document.querySelector('[data-tab="join"]').click();
-    joinRoomIdEl.value = room;
-    joinNameEl.focus();
+    // Switch to create tab and pre-fill room number
+    document.querySelector('[data-tab="create"]').click();
+    createRoomIdEl.value = room;
+    createRoomIdEl.removeAttribute('hidden');
+    createNameEl.focus();
   }
 })();
