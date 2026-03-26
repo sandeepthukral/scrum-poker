@@ -10,6 +10,7 @@ let myRoomId = '';
 let myVote = null;
 let roomState = null;
 let amIOwner = false;
+let wasRevealed = false;
 
 // ── DOM Refs ──
 const joinScreen   = document.getElementById('join-screen');
@@ -38,6 +39,8 @@ const copyToast    = document.getElementById('copy-toast');
 const topicInput   = document.getElementById('topic-input');
 const topicDisplay = document.getElementById('topic-display');
 const participantCount = document.getElementById('participant-count');
+const confettiCanvas = document.getElementById('confetti-canvas');
+const confettiCtx  = confettiCanvas.getContext('2d');
 
 // ── Tab switching ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -137,12 +140,80 @@ leaveBtn.addEventListener('click', () => {
   myName = '';
   myRoomId = '';
   myVote = null;
+  wasRevealed = false;
   roomScreen.classList.remove('active');
   joinScreen.classList.add('active');
   const url = new URL(window.location.href);
   url.searchParams.delete('room');
   window.history.replaceState({}, '', url);
 });
+
+// ── Confetti ──
+let confettiAnimId = null;
+
+function launchConfetti() {
+  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+
+  const colors = ['#4db6c1', '#f6c90e', '#ff6b6b', '#a8e063', '#9b59b6', '#3498db', '#fd9644'];
+  const cx = confettiCanvas.width  / 2;
+  const cy = confettiCanvas.height / 2;
+  const particles = Array.from({ length: 160 }, () => {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 12;
+    return {
+      x:  cx, y: cy,
+      w:  7 + Math.random() * 8,
+      h:  3 + Math.random() * 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      angle: Math.random() * Math.PI * 2,
+      spin:  (Math.random() - 0.5) * 0.3,
+      opacity: 1,
+    };
+  });
+
+  if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+  confettiCanvas.style.display = 'block';
+
+  const duration = 4000;
+  let startTime = null;
+
+  function frame(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = ts - startTime;
+
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+    for (const p of particles) {
+      p.x     += p.vx;
+      p.y     += p.vy;
+      p.vy    += 0.12; // gravity
+      p.angle += p.spin;
+      if (elapsed > duration * 0.65) {
+        p.opacity = Math.max(0, 1 - (elapsed - duration * 0.65) / (duration * 0.35));
+      }
+      confettiCtx.save();
+      confettiCtx.globalAlpha = p.opacity;
+      confettiCtx.translate(p.x, p.y);
+      confettiCtx.rotate(p.angle);
+      confettiCtx.fillStyle = p.color;
+      confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      confettiCtx.restore();
+    }
+
+    if (elapsed < duration) {
+      confettiAnimId = requestAnimationFrame(frame);
+    } else {
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      confettiCanvas.style.display = 'none';
+      confettiAnimId = null;
+    }
+  }
+
+  confettiAnimId = requestAnimationFrame(frame);
+}
 
 // ── Build card deck ──
 function buildCards() {
@@ -305,6 +376,11 @@ function renderRoom(state) {
 
   // Stats after reveal
   if (revealed) {
+    // Consensus: all voters (non-null) agree — ignores non-voters
+    const allVotes = users.map(u => u.vote).filter(v => v !== null);
+    const consensus = allVotes.length > 0 && allVotes.every(v => v === allVotes[0]);
+    if (consensus && !wasRevealed) launchConfetti();
+
     const numericVotes = users
       .map(u => u.vote)
       .filter(v => v !== null && v !== '?' && v !== '☕')
@@ -329,6 +405,7 @@ function renderRoom(state) {
   } else {
     statsBar.classList.add('hidden');
   }
+  wasRevealed = revealed;
 }
 
 function escapeHtml(str) {

@@ -386,6 +386,16 @@ input[type="text"]:focus { border-color: var(--teal); }
   background: #f8f9fa;
 }
 .stats-bar.hidden { display: none; }
+
+#confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: none;
+  z-index: 9999;
+}
 .stat-item {
   flex: 1;
   display: flex;
