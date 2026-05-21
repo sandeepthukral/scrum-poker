@@ -5,7 +5,12 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npm ls:*)",
       "Bash(npm search:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
