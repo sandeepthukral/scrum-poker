@@ -348,12 +348,21 @@ function renderRoom(state) {
 
   // Results table
   resultsBody.innerHTML = '';
+  const outliers = revealed ? getOutliers(users) : { high: [], low: [] };
   users.forEach(user => {
     const tr = document.createElement('tr');
     const isMe = user.name === myName;
 
     const nameTd = document.createElement('td');
-    let nameHtml = escapeHtml(user.name);
+    const escapedName = escapeHtml(user.name);
+    let nameHtml;
+    if (outliers.high.includes(user.name)) {
+      nameHtml = `<span class="name-outlier outlier-high">${escapedName}</span>`;
+    } else if (outliers.low.includes(user.name)) {
+      nameHtml = `<span class="name-outlier outlier-low">${escapedName}</span>`;
+    } else {
+      nameHtml = escapedName;
+    }
     if (user.isOwner) nameHtml += '<span class="organizer-label">organizer</span>';
     if (isMe)        nameHtml += '<span class="you-label">you</span>';
     nameTd.innerHTML = nameHtml;
@@ -361,7 +370,10 @@ function renderRoom(state) {
     const voteTd = document.createElement('td');
     let badge;
     if (revealed && user.vote !== null) {
-      badge = `<span class="vote-badge revealed">${escapeHtml(String(user.vote))}</span>`;
+      let extraClass = '';
+      if (outliers.high.includes(user.name))      extraClass = ' outlier-high';
+      else if (outliers.low.includes(user.name))  extraClass = ' outlier-low';
+      badge = `<span class="vote-badge revealed${extraClass}">${escapeHtml(String(user.vote))}</span>`;
     } else if (!revealed && user.vote !== null) {
       badge = `<span class="vote-badge voted">✓</span>`;
     } else {
@@ -373,6 +385,14 @@ function renderRoom(state) {
     tr.appendChild(voteTd);
     resultsBody.appendChild(tr);
   });
+
+  // Flash highlighted names on the moment of reveal
+  if (revealed && !wasRevealed) {
+    document.querySelectorAll('.name-outlier').forEach(el => {
+      el.classList.add('outlier-flash');
+      setTimeout(() => el.classList.remove('outlier-flash'), 3000);
+    });
+  }
 
   // Stats after reveal
   if (revealed) {

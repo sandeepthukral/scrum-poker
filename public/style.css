@@ -353,6 +353,24 @@ input[type="text"]:focus { border-color: var(--teal); }
 .vote-badge.voted { background: var(--teal-light); color: var(--teal-dark); }
 .vote-badge.revealed { background: var(--card-selected-bg); color: #fff; }
 .vote-badge.waiting { background: #f0f0f0; color: #bbb; font-size: .75rem; letter-spacing: .05em; }
+.vote-badge.outlier-high { background: #e60000; color: #fff; font-weight: 700; }
+.vote-badge.outlier-low  { background: #006600; color: #fff; font-weight: 700; }
+
+.name-outlier {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-weight: 700;
+  color: #fff;
+}
+.name-outlier.outlier-high { background: #e60000; }
+.name-outlier.outlier-low  { background: #006600; }
+
+@keyframes outlier-flash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.outlier-flash { animation: outlier-flash 0.5s ease-in-out 6; }
 
 .you-label {
   display: inline-block;

@@ -23,5 +23,31 @@
     );
   }
 
+  /**
+   * Returns { high: [names], low: [names] } for users whose numeric votes
+   * are the highest or lowest after reveal. Non-numeric votes (?, ☕, null)
+   * are ignored. Returns empty arrays when there's consensus or too few voters.
+   */
+  function getOutliers(users) {
+    const numericUsers = users.filter(u => {
+      if (u.vote === null || u.vote === '?' || u.vote === '☕') return false;
+      return !isNaN(parseFloat(u.vote));
+    });
+
+    if (numericUsers.length < 2) return { high: [], low: [] };
+
+    const values = numericUsers.map(u => parseFloat(u.vote));
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+
+    if (minVal === maxVal) return { high: [], low: [] };
+
+    return {
+      high: numericUsers.filter(u => parseFloat(u.vote) === maxVal).map(u => u.name),
+      low:  numericUsers.filter(u => parseFloat(u.vote) === minVal).map(u => u.name),
+    };
+  }
+
   exports.nearestFibonacci = nearestFibonacci;
+  exports.getOutliers = getOutliers;
 })(typeof module !== 'undefined' ? module.exports : window);

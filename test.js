@@ -1,5 +1,5 @@
 /* ── Scrum Poker Test Suite ── */
-const { nearestFibonacci } = require('./public/utils.js');
+const { nearestFibonacci, getOutliers } = require('./public/utils.js');
 const http = require('http');
 const { Server } = require('socket.io');
 const { io: Client } = require('socket.io-client');
@@ -193,6 +193,115 @@ async function runTests(port, url) {
   // Edge cases
   assert(nearestFibonacci(0)   === 1,   '0 → 1 (below sequence)');
   assert(nearestFibonacci(-5)  === 1,   'negative → 1');
+
+  // ── getOutliers ──
+  console.log('\n[Unit] getOutliers');
+
+  // consensus — no outliers
+  {
+    const users = [
+      { name: 'Alice', vote: '5' },
+      { name: 'Bob',   vote: '5' },
+      { name: 'Carol', vote: '5' },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.length === 0 && r.low.length === 0, 'consensus: no outliers');
+  }
+
+  // two distinct values — min is low, max is high
+  {
+    const users = [
+      { name: 'Alice', vote: '3' },
+      { name: 'Bob',   vote: '8' },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.includes('Bob')   && r.high.length === 1, 'high outlier: Bob (8)');
+    assert(r.low.includes('Alice')  && r.low.length  === 1, 'low outlier: Alice (3)');
+  }
+
+  // three distinct values — middle user not an outlier
+  {
+    const users = [
+      { name: 'Alice', vote: '2' },
+      { name: 'Bob',   vote: '5' },
+      { name: 'Carol', vote: '13' },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.includes('Carol') && r.high.length === 1, 'high outlier: Carol (13)');
+    assert(r.low.includes('Alice')  && r.low.length  === 1, 'low outlier: Alice (2)');
+    assert(!r.high.includes('Bob') && !r.low.includes('Bob'), 'middle: Bob not an outlier');
+  }
+
+  // multiple users tied at max and min
+  {
+    const users = [
+      { name: 'Alice', vote: '1' },
+      { name: 'Bob',   vote: '1' },
+      { name: 'Carol', vote: '8' },
+      { name: 'Dave',  vote: '8' },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.includes('Carol') && r.high.includes('Dave') && r.high.length === 2, 'two high outliers');
+    assert(r.low.includes('Alice')  && r.low.includes('Bob')   && r.low.length  === 2, 'two low outliers');
+  }
+
+  // non-numeric votes excluded
+  {
+    const users = [
+      { name: 'Alice', vote: '?'  },
+      { name: 'Bob',   vote: '☕' },
+      { name: 'Carol', vote: '3'  },
+      { name: 'Dave',  vote: '8'  },
+    ];
+    const r = getOutliers(users);
+    assert(!r.high.includes('Alice') && !r.high.includes('Bob'), 'non-numeric not in high');
+    assert(!r.low.includes('Alice')  && !r.low.includes('Bob'),  'non-numeric not in low');
+    assert(r.high.includes('Dave'),  'Dave (8) is high outlier');
+    assert(r.low.includes('Carol'),  'Carol (3) is low outlier');
+  }
+
+  // null votes excluded
+  {
+    const users = [
+      { name: 'Alice', vote: null },
+      { name: 'Bob',   vote: '5'  },
+      { name: 'Carol', vote: '13' },
+    ];
+    const r = getOutliers(users);
+    assert(!r.high.includes('Alice') && !r.low.includes('Alice'), 'null vote excluded');
+    assert(r.high.includes('Carol'), 'Carol (13) is high');
+    assert(r.low.includes('Bob'),    'Bob (5) is low');
+  }
+
+  // single numeric voter — no outliers
+  {
+    const users = [
+      { name: 'Alice', vote: '5'  },
+      { name: 'Bob',   vote: null },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.length === 0 && r.low.length === 0, 'single numeric voter: no outliers');
+  }
+
+  // no voters at all — no outliers
+  {
+    const users = [
+      { name: 'Alice', vote: null },
+      { name: 'Bob',   vote: null },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.length === 0 && r.low.length === 0, 'no voters: no outliers');
+  }
+
+  // only non-numeric votes — no outliers
+  {
+    const users = [
+      { name: 'Alice', vote: '?' },
+      { name: 'Bob',   vote: '☕' },
+    ];
+    const r = getOutliers(users);
+    assert(r.high.length === 0 && r.low.length === 0, 'only non-numeric: no outliers');
+  }
 
   // ── /api/new-room ──
   console.log('\n[API] /api/new-room');
