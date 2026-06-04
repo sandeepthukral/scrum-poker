@@ -48,6 +48,28 @@
     };
   }
 
+  /**
+   * Returns true when all voted (non-null) users chose the same value.
+   * Non-voters are excluded; returns false when nobody has voted.
+   */
+  function calculateConsensus(users) {
+    const votes = users.map(u => u.vote).filter(v => v !== null);
+    return votes.length > 0 && votes.every(v => v === votes[0]);
+  }
+
+  /**
+   * Extracts the numeric vote values from a user list, ignoring null, '?' and '☕'.
+   */
+  function getNumericVotes(users) {
+    return users
+      .map(u => u.vote)
+      .filter(v => v !== null && v !== '?' && v !== '☕')
+      .map(v => parseFloat(v))
+      .filter(v => !isNaN(v));
+  }
+
   exports.nearestFibonacci = nearestFibonacci;
   exports.getOutliers = getOutliers;
+  exports.calculateConsensus = calculateConsensus;
+  exports.getNumericVotes = getNumericVotes;
 })(typeof module !== 'undefined' ? module.exports : window);

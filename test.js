@@ -1,5 +1,5 @@
 /* ── Scrum Poker Test Suite ── */
-const { nearestFibonacci, getOutliers } = require('./public/utils.js');
+const { nearestFibonacci, getOutliers, calculateConsensus, getNumericVotes } = require('./public/utils.js');
 const http = require('http');
 const { Server } = require('socket.io');
 const { io: Client } = require('socket.io-client');
@@ -310,6 +310,24 @@ async function runTests(port, url) {
     const r = getOutliers(users);
     assert(r.high.length === 0 && r.low.length === 0, 'only non-numeric: no outliers');
   }
+
+  // ── calculateConsensus ──
+  console.log('\n[Unit] calculateConsensus');
+  assert(calculateConsensus([{ vote: '5' }, { vote: '5' }]) === true,  'all same → consensus');
+  assert(calculateConsensus([{ vote: '5' }, { vote: '8' }]) === false, 'different → no consensus');
+  assert(calculateConsensus([{ vote: null }, { vote: null }]) === false, 'all null → no consensus');
+  assert(calculateConsensus([{ vote: '☕' }, { vote: '☕' }]) === true,  'matching non-numeric → consensus');
+  assert(calculateConsensus([{ vote: '5' }, { vote: null }]) === true,  'one voter → consensus');
+
+  // ── getNumericVotes ──
+  console.log('\n[Unit] getNumericVotes');
+  {
+    const users = [{ vote: '5' }, { vote: '8' }, { vote: '?' }, { vote: '☕' }, { vote: null }];
+    const nums = getNumericVotes(users);
+    assert(nums.length === 2,       'filters out non-numeric and null');
+    assert(nums[0] === 5 && nums[1] === 8, 'returns parsed numbers');
+  }
+  assert(getNumericVotes([{ vote: null }]).length === 0, 'all null → empty');
 
   // ── /api/new-room ──
   console.log('\n[API] /api/new-room');
