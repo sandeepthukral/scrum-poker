@@ -608,7 +608,9 @@ async function runTests(port, url) {
     await waitConnected(c2);
 
     await joinRoom(c1, '40404040', 'Alice', true);
+    const aliceDrain = nextEvent(c1, 'room-state'); // drain Alice's broadcast from Bob joining
     const { state: s0 } = await joinRoom(c2, '40404040', 'Bob', false);
+    await aliceDrain;
 
     const bobId = s0.users.find(u => u.name === 'Bob').id;
 
