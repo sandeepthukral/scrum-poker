@@ -396,6 +396,23 @@ input[type="text"]:focus { border-color: var(--teal); }
   vertical-align: middle;
 }
 
+.make-organizer-btn {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: .72rem;
+  background: none;
+  color: var(--teal-dark);
+  border: 1px solid var(--teal-dark);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-weight: 600;
+  vertical-align: middle;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+}
+tr:hover .make-organizer-btn { opacity: 1; }
+
 /* ── Stats Bar ── */
 .stats-bar {
   display: flex;

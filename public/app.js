@@ -420,7 +420,15 @@ function renderRoom(state) {
     if (user.isOwner)
       nameHtml += '<span class="organizer-label">organizer</span>';
     if (isMe) nameHtml += '<span class="you-label">you</span>';
+    if (amIOwner && !isMe && !user.isOwner)
+      nameHtml += `<button class="make-organizer-btn" data-target-id="${escapeHtml(user.id)}">Make organizer</button>`;
     nameTd.innerHTML = nameHtml;
+
+    if (amIOwner && !isMe && !user.isOwner) {
+      nameTd.querySelector('.make-organizer-btn').addEventListener('click', () => {
+        socket.emit('transfer-ownership', { targetId: user.id });
+      });
+    }
 
     const voteTd = document.createElement("td");
     let badge;

@@ -82,6 +82,14 @@ function createApp() {
       broadcastRoomState(currentRoom);
     });
 
+    socket.on('transfer-ownership', ({ targetId }) => {
+      const room = rooms[currentRoom];
+      if (!room || room.ownerId !== socket.id) return;
+      if (!room.users[targetId]) return;
+      room.ownerId = targetId;
+      broadcastRoomState(currentRoom);
+    });
+
     socket.on('set-topic', ({ topic }) => {
       if (!currentRoom || !rooms[currentRoom]) return;
       rooms[currentRoom].topic = topic || '';
@@ -589,6 +597,58 @@ async function runTests(port, url) {
     const s2 = await doAndWaitState(c, () => c.emit('cast-vote', { vote: null }));
     assert(s2.users[0].vote === null, 'vote cleared to null');
     c.disconnect();
+  }
+
+  // ── explicit ownership transfer ──
+  console.log('\n[Socket] explicit ownership transfer');
+  {
+    const c1 = connect(port);
+    const c2 = connect(port);
+    await waitConnected(c1);
+    await waitConnected(c2);
+
+    await joinRoom(c1, '40404040', 'Alice', true);
+    const aliceDrain = nextEvent(c1, 'room-state'); // drain Alice's broadcast from Bob joining
+    const { state: s0 } = await joinRoom(c2, '40404040', 'Bob', false);
+    await aliceDrain;
+
+    const bobId = s0.users.find(u => u.name === 'Bob').id;
+
+    // Alice (owner) transfers to Bob
+    const [s1, s2] = await Promise.all([
+      nextEvent(c1, 'room-state'),
+      nextEvent(c2, 'room-state'),
+      Promise.resolve().then(() => c1.emit('transfer-ownership', { targetId: bobId })),
+    ]);
+    assert(s1.isOwner === false,                       'Alice is no longer owner');
+    assert(s2.isOwner === true,                        'Bob is now owner');
+    assert(s1.users.find(u => u.name === 'Bob').isOwner  === true,  'Bob marked as owner in state');
+    assert(s1.users.find(u => u.name === 'Alice').isOwner === false, 'Alice not owner in state');
+    c1.disconnect();
+    c2.disconnect();
+  }
+
+  // ── non-owner cannot transfer ownership ──
+  console.log('\n[Socket] non-owner cannot transfer ownership');
+  {
+    const c1 = connect(port);
+    const c2 = connect(port);
+    await waitConnected(c1);
+    await waitConnected(c2);
+
+    await joinRoom(c1, '50505050', 'Alice', true);
+    const { state: s0 } = await joinRoom(c2, '50505050', 'Bob', false);
+
+    const aliceId = s0.users.find(u => u.name === 'Alice').id;
+
+    // Bob (non-owner) tries to transfer to himself — silently ignored
+    c2.emit('transfer-ownership', { targetId: aliceId });
+    await new Promise(r => setTimeout(r, 200));
+
+    const s = await doAndWaitState(c1, () => c1.emit('cast-vote', { vote: null }));
+    assert(s.users.find(u => u.name === 'Alice').isOwner === true, 'Alice still owner after non-owner transfer attempt');
+    c1.disconnect();
+    c2.disconnect();
   }
 
   // ── missing name / roomId silently ignored ──
