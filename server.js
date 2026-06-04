@@ -105,6 +105,14 @@ io.on('connection', (socket) => {
     broadcastRoomState(currentRoom);
   });
 
+  socket.on('transfer-ownership', ({ targetId }) => {
+    const room = rooms[currentRoom];
+    if (!room || room.ownerId !== socket.id) return; // owner only
+    if (!room.users[targetId]) return; // target must be in the room
+    room.ownerId = targetId;
+    broadcastRoomState(currentRoom);
+  });
+
   socket.on('set-topic', ({ topic }) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].topic = topic || '';

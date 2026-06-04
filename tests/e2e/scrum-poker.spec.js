@@ -173,6 +173,34 @@ test.describe('Scrum Poker — multi-user flows', () => {
     }
   });
 
+  test('owner can transfer organizer role to another member', async ({ browser }) => {
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    try {
+      const pageA = await ctxA.newPage();
+      const pageB = await ctxB.newPage();
+
+      const roomId = await createRoom(pageA, 'Alice');
+      await joinRoom(pageB, roomId, 'Bob');
+
+      // Alice sees a "Make organizer" button for Bob (visible on hover)
+      const makeOrgBtn = pageA.locator('.make-organizer-btn');
+      await expect(makeOrgBtn).toBeAttached();
+
+      // Alice clicks "Make organizer" for Bob
+      await makeOrgBtn.click({ force: true });
+
+      // Bob becomes organizer — his reveal button is now enabled
+      await expect(pageB.locator('#reveal-btn')).toBeEnabled();
+
+      // Alice is no longer organizer — her reveal button is disabled
+      await expect(pageA.locator('#reveal-btn')).toBeDisabled();
+    } finally {
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
   test('owner can reset estimates — votes and stats clear for all users', async ({ browser }) => {
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
