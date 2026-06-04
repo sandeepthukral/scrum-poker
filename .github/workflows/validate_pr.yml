@@ -1,13 +1,10 @@
-name: Tests
+name: Validate PR
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
 
 jobs:
-  test:
+  unit_tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -21,8 +18,8 @@ jobs:
 
       - run: npm test
 
-  e2e:
-    needs: test
+  e2e_tests:
+    needs: unit_tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
