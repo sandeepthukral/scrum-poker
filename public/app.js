@@ -1,85 +1,122 @@
 /* ── Scrum Poker Client ── */
 
-const CARD_VALUES = ['?', '☕', '0', '0.5', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
+import "dotenv/config";
+
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+const CARD_VALUES = [
+  "?",
+  "☕",
+  "0",
+  "0.5",
+  "1",
+  "2",
+  "3",
+  "5",
+  "8",
+  "13",
+  "20",
+  "40",
+  "100",
+];
 
 const socket = io();
 
 // ── State ──
-let myName = '';
-let myRoomId = '';
+let myName = "";
+let myRoomId = "";
 let myVote = null;
 let roomState = null;
 let amIOwner = false;
 let wasRevealed = false;
 
 // ── DOM Refs ──
-const joinScreen   = document.getElementById('join-screen');
-const roomScreen   = document.getElementById('room-screen');
-const joinError    = document.getElementById('join-error');
-const createRoomIdEl = document.getElementById('create-room-id');
-const createNameEl = document.getElementById('create-name');
-const createBtn    = document.getElementById('create-btn');
-const joinRoomIdEl = document.getElementById('join-room-id');
-const joinNameEl   = document.getElementById('join-name');
-const joinBtn      = document.getElementById('join-btn');
-const roomLabel    = document.getElementById('room-label');
-const cardsGrid    = document.getElementById('cards-grid');
-const resultsBody  = document.getElementById('results-body');
-const revealBtn    = document.getElementById('reveal-btn');
-const deleteBtn    = document.getElementById('delete-btn');
-const statsBar     = document.getElementById('stats-bar');
-const statAvg      = document.getElementById('stat-avg');
-const statMin      = document.getElementById('stat-min');
-const statMax      = document.getElementById('stat-max');
-const statConsensus= document.getElementById('stat-consensus');
-const userAvatar   = document.getElementById('user-avatar');
-const leaveBtn     = document.getElementById('leave-btn');
-const copyBtn      = document.getElementById('copy-room-btn');
-const copyToast    = document.getElementById('copy-toast');
-const topicInput   = document.getElementById('topic-input');
-const topicDisplay = document.getElementById('topic-display');
-const participantCount = document.getElementById('participant-count');
-const confettiCanvas = document.getElementById('confetti-canvas');
-const confettiCtx  = confettiCanvas.getContext('2d');
+const joinScreen = document.getElementById("join-screen");
+const roomScreen = document.getElementById("room-screen");
+const joinError = document.getElementById("join-error");
+const createRoomIdEl = document.getElementById("create-room-id");
+const createNameEl = document.getElementById("create-name");
+const createBtn = document.getElementById("create-btn");
+const joinRoomIdEl = document.getElementById("join-room-id");
+const joinNameEl = document.getElementById("join-name");
+const joinBtn = document.getElementById("join-btn");
+const roomLabel = document.getElementById("room-label");
+const cardsGrid = document.getElementById("cards-grid");
+const resultsBody = document.getElementById("results-body");
+const revealBtn = document.getElementById("reveal-btn");
+const deleteBtn = document.getElementById("delete-btn");
+const statsBar = document.getElementById("stats-bar");
+const statAvg = document.getElementById("stat-avg");
+const statMin = document.getElementById("stat-min");
+const statMax = document.getElementById("stat-max");
+const statConsensus = document.getElementById("stat-consensus");
+const userAvatar = document.getElementById("user-avatar");
+const leaveBtn = document.getElementById("leave-btn");
+const copyBtn = document.getElementById("copy-room-btn");
+const copyToast = document.getElementById("copy-toast");
+const topicInput = document.getElementById("topic-input");
+const topicDisplay = document.getElementById("topic-display");
+const participantCount = document.getElementById("participant-count");
+const confettiCanvas = document.getElementById("confetti-canvas");
+const confettiCtx = confettiCanvas.getContext("2d");
 
 // ── Tab switching ──
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    joinError.textContent = '';
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document
+      .querySelectorAll(".tab-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-pane")
+      .forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    joinError.textContent = "";
   });
 });
 
 // ── Create room ──
-createBtn.addEventListener('click', async () => {
+createBtn.addEventListener("click", async () => {
   const name = createNameEl.value.trim();
-  if (!name) { showError('Please enter your name.'); return; }
+  if (!name) {
+    showError("Please enter your name.");
+    return;
+  }
   setJoinLoading(true);
   const prefilledRoomId = createRoomIdEl.value.trim();
   if (prefilledRoomId) {
     requestJoin(prefilledRoomId, name, true);
   } else {
-    const res = await fetch('/api/new-room');
+    const res = await fetch("/api/new-room");
     const { roomId } = await res.json();
     requestJoin(roomId, name, true);
   }
 });
-createNameEl.addEventListener('keydown', e => { if (e.key === 'Enter') createBtn.click(); });
+createNameEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") createBtn.click();
+});
 
 // ── Join room ──
-joinBtn.addEventListener('click', () => {
-  const roomId = joinRoomIdEl.value.trim().replace(/\s/g, '');
-  const name   = joinNameEl.value.trim();
-  if (!roomId) { showError('Please enter a room number.'); return; }
-  if (!name)   { showError('Please enter your name.'); return; }
+joinBtn.addEventListener("click", () => {
+  const roomId = joinRoomIdEl.value.trim().replace(/\s/g, "");
+  const name = joinNameEl.value.trim();
+  if (!roomId) {
+    showError("Please enter a room number.");
+    return;
+  }
+  if (!name) {
+    showError("Please enter your name.");
+    return;
+  }
   setJoinLoading(true);
   requestJoin(roomId, name, false);
 });
-joinRoomIdEl.addEventListener('keydown', e => { if (e.key === 'Enter') joinBtn.click(); });
-joinNameEl.addEventListener('keydown',   e => { if (e.key === 'Enter') joinBtn.click(); });
+joinRoomIdEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") joinBtn.click();
+});
+joinNameEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") joinBtn.click();
+});
 
 function showError(msg) {
   joinError.textContent = msg;
@@ -87,95 +124,109 @@ function showError(msg) {
 
 function setJoinLoading(loading) {
   createBtn.disabled = loading;
-  joinBtn.disabled   = loading;
-  joinError.textContent = '';
+  joinBtn.disabled = loading;
+  joinError.textContent = "";
 }
 
 // ── Request join (waits for server confirmation) ──
 function requestJoin(roomId, name, create) {
   myRoomId = roomId;
-  myName   = name;
-  socket.emit('join-room', { roomId, name, create });
+  myName = name;
+  socket.emit("join-room", { roomId, name, create });
 }
 
 // ── Enter room (called after server confirms join) ──
 function enterRoom(roomId) {
   myVote = null;
 
-  roomLabel.textContent  = 'Room ' + formatRoomId(roomId);
+  roomLabel.textContent = "Room " + formatRoomId(roomId);
   userAvatar.textContent = initials(myName);
 
-  joinScreen.classList.remove('active');
-  roomScreen.classList.add('active');
+  joinScreen.classList.remove("active");
+  roomScreen.classList.add("active");
 
   buildCards();
 
   const url = new URL(window.location.href);
-  url.searchParams.set('room', roomId);
-  window.history.replaceState({}, '', url);
+  url.searchParams.set("room", roomId);
+  window.history.replaceState({}, "", url);
 }
 
 function formatRoomId(id) {
-  return id.replace(/(\d{2})(?=\d)/g, '$1 ');
+  return id.replace(/(\d{2})(?=\d)/g, "$1 ");
 }
 
 function initials(name) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 // ── Copy room link ──
-copyBtn.addEventListener('click', () => {
+copyBtn.addEventListener("click", () => {
   const url = new URL(window.location.href);
-  url.searchParams.set('room', myRoomId);
+  url.searchParams.set("room", myRoomId);
   navigator.clipboard.writeText(url.toString()).then(() => {
-    copyToast.classList.add('show');
-    setTimeout(() => copyToast.classList.remove('show'), 1800);
+    copyToast.classList.add("show");
+    setTimeout(() => copyToast.classList.remove("show"), 1800);
   });
 });
 
 // ── Leave ──
-leaveBtn.addEventListener('click', () => {
+leaveBtn.addEventListener("click", () => {
   socket.disconnect();
   socket.connect();
-  myName = '';
-  myRoomId = '';
+  myName = "";
+  myRoomId = "";
   myVote = null;
   wasRevealed = false;
-  roomScreen.classList.remove('active');
-  joinScreen.classList.add('active');
+  roomScreen.classList.remove("active");
+  joinScreen.classList.add("active");
   const url = new URL(window.location.href);
-  url.searchParams.delete('room');
-  window.history.replaceState({}, '', url);
+  url.searchParams.delete("room");
+  window.history.replaceState({}, "", url);
 });
 
 // ── Confetti ──
 let confettiAnimId = null;
 
 function launchConfetti() {
-  confettiCanvas.width  = window.innerWidth;
+  confettiCanvas.width = window.innerWidth;
   confettiCanvas.height = window.innerHeight;
 
-  const colors = ['#4db6c1', '#f6c90e', '#ff6b6b', '#a8e063', '#9b59b6', '#3498db', '#fd9644'];
-  const cx = confettiCanvas.width  / 2;
+  const colors = [
+    "#4db6c1",
+    "#f6c90e",
+    "#ff6b6b",
+    "#a8e063",
+    "#9b59b6",
+    "#3498db",
+    "#fd9644",
+  ];
+  const cx = confettiCanvas.width / 2;
   const cy = confettiCanvas.height / 2;
   const particles = Array.from({ length: 160 }, () => {
     const angle = Math.random() * Math.PI * 2;
     const speed = 4 + Math.random() * 12;
     return {
-      x:  cx, y: cy,
-      w:  7 + Math.random() * 8,
-      h:  3 + Math.random() * 4,
+      x: cx,
+      y: cy,
+      w: 7 + Math.random() * 8,
+      h: 3 + Math.random() * 4,
       color: colors[Math.floor(Math.random() * colors.length)],
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       angle: Math.random() * Math.PI * 2,
-      spin:  (Math.random() - 0.5) * 0.3,
+      spin: (Math.random() - 0.5) * 0.3,
       opacity: 1,
     };
   });
 
   if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
-  confettiCanvas.style.display = 'block';
+  confettiCanvas.style.display = "block";
 
   const duration = 4000;
   let startTime = null;
@@ -187,12 +238,15 @@ function launchConfetti() {
     confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
     for (const p of particles) {
-      p.x     += p.vx;
-      p.y     += p.vy;
-      p.vy    += 0.12; // gravity
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.12; // gravity
       p.angle += p.spin;
       if (elapsed > duration * 0.65) {
-        p.opacity = Math.max(0, 1 - (elapsed - duration * 0.65) / (duration * 0.35));
+        p.opacity = Math.max(
+          0,
+          1 - (elapsed - duration * 0.65) / (duration * 0.35),
+        );
       }
       confettiCtx.save();
       confettiCtx.globalAlpha = p.opacity;
@@ -207,7 +261,7 @@ function launchConfetti() {
       confettiAnimId = requestAnimationFrame(frame);
     } else {
       confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-      confettiCanvas.style.display = 'none';
+      confettiCanvas.style.display = "none";
       confettiAnimId = null;
     }
   }
@@ -217,13 +271,13 @@ function launchConfetti() {
 
 // ── Build card deck ──
 function buildCards() {
-  cardsGrid.innerHTML = '';
-  CARD_VALUES.forEach(val => {
-    const card = document.createElement('div');
-    card.className = 'card' + (val === '☕' ? ' card-coffee' : '');
+  cardsGrid.innerHTML = "";
+  CARD_VALUES.forEach((val) => {
+    const card = document.createElement("div");
+    card.className = "card" + (val === "☕" ? " card-coffee" : "");
     card.textContent = val;
     card.dataset.val = val;
-    card.addEventListener('click', () => selectCard(val, card));
+    card.addEventListener("click", () => selectCard(val, card));
     cardsGrid.appendChild(card);
   });
 }
@@ -233,47 +287,47 @@ function selectCard(val, el) {
   if (myVote === val) {
     // deselect
     myVote = null;
-    socket.emit('cast-vote', { vote: null });
+    socket.emit("cast-vote", { vote: null });
   } else {
     myVote = val;
-    socket.emit('cast-vote', { vote: val });
+    socket.emit("cast-vote", { vote: val });
   }
   updateCardHighlight();
 }
 
 function updateCardHighlight() {
-  document.querySelectorAll('.card').forEach(card => {
-    card.classList.toggle('selected', card.dataset.val === myVote);
+  document.querySelectorAll(".card").forEach((card) => {
+    card.classList.toggle("selected", card.dataset.val === myVote);
   });
 }
 
 // ── Reveal / Delete ──
-revealBtn.addEventListener('click', () => {
-  socket.emit('reveal');
+revealBtn.addEventListener("click", () => {
+  socket.emit("reveal");
 });
 
-deleteBtn.addEventListener('click', () => {
+deleteBtn.addEventListener("click", () => {
   myVote = null;
   updateCardHighlight();
-  socket.emit('delete-estimates');
+  socket.emit("delete-estimates");
 });
 
 // ── Topic ──
 let topicDebounce = null;
-topicInput.addEventListener('input', () => {
+topicInput.addEventListener("input", () => {
   clearTimeout(topicDebounce);
   topicDebounce = setTimeout(() => {
-    socket.emit('set-topic', { topic: topicInput.value.trim() });
+    socket.emit("set-topic", { topic: topicInput.value.trim() });
   }, 400);
 });
 
 // ── Socket events ──
-socket.on('room-state', (state) => {
+socket.on("room-state", (state) => {
   roomState = state;
   amIOwner = state.isOwner;
 
   // Sync local vote with server — handles delete-estimates resetting our card
-  const me = state.users.find(u => u.name === myName);
+  const me = state.users.find((u) => u.name === myName);
   if (me && me.vote === null) {
     myVote = null;
     updateCardHighlight();
@@ -282,12 +336,12 @@ socket.on('room-state', (state) => {
   renderRoom(state);
 });
 
-socket.on('joined', ({ roomId }) => {
+socket.on("joined", ({ roomId }) => {
   setJoinLoading(false);
   enterRoom(roomId);
 });
 
-socket.on('join-error', ({ message }) => {
+socket.on("join-error", ({ message }) => {
   setJoinLoading(false);
   showError(message);
 });
@@ -298,62 +352,62 @@ function renderRoom(state) {
 
   // Topic display
   if (topic) {
-    topicDisplay.textContent = '📌 ' + topic;
-    topicDisplay.classList.add('has-topic');
+    topicDisplay.textContent = "📌 " + topic;
+    topicDisplay.classList.add("has-topic");
     if (topicInput.value !== topic) topicInput.value = topic;
   } else {
-    topicDisplay.textContent = '';
-    topicDisplay.classList.remove('has-topic');
-    if (topicInput.value !== '') topicInput.value = '';
+    topicDisplay.textContent = "";
+    topicDisplay.classList.remove("has-topic");
+    if (topicInput.value !== "") topicInput.value = "";
   }
 
   // Participant count
   const n = users.length;
-  participantCount.textContent = n + ' participant' + (n !== 1 ? 's' : '');
+  participantCount.textContent = n + " participant" + (n !== 1 ? "s" : "");
 
   // Reveal button — only owner can use it
   if (revealed) {
-    revealBtn.textContent = 'Revealed';
+    revealBtn.textContent = "Revealed";
     revealBtn.disabled = true;
-    revealBtn.style.opacity = '0.5';
-    revealBtn.title = '';
+    revealBtn.style.opacity = "0.5";
+    revealBtn.title = "";
   } else if (isOwner) {
-    revealBtn.textContent = 'Reveal Cards';
+    revealBtn.textContent = "Reveal Cards";
     revealBtn.disabled = false;
-    revealBtn.style.opacity = '1';
-    revealBtn.title = '';
+    revealBtn.style.opacity = "1";
+    revealBtn.title = "";
   } else {
-    revealBtn.textContent = 'Reveal Cards';
+    revealBtn.textContent = "Reveal Cards";
     revealBtn.disabled = true;
-    revealBtn.style.opacity = '0.4';
-    revealBtn.title = 'Only the organizer can reveal cards';
+    revealBtn.style.opacity = "0.4";
+    revealBtn.title = "Only the organizer can reveal cards";
   }
 
   // Delete button — only owner can use it
   if (isOwner) {
     deleteBtn.disabled = false;
-    deleteBtn.style.opacity = '1';
-    deleteBtn.title = '';
+    deleteBtn.style.opacity = "1";
+    deleteBtn.title = "";
   } else {
     deleteBtn.disabled = true;
-    deleteBtn.style.opacity = '0.4';
-    deleteBtn.title = 'Only the organizer can delete estimates';
+    deleteBtn.style.opacity = "0.4";
+    deleteBtn.title = "Only the organizer can delete estimates";
   }
 
   // Card selection availability
-  document.querySelectorAll('.card').forEach(card => {
-    card.style.cursor = revealed ? 'not-allowed' : 'pointer';
-    card.style.opacity = revealed ? '0.7' : '1';
+  document.querySelectorAll(".card").forEach((card) => {
+    card.style.cursor = revealed ? "not-allowed" : "pointer";
+    card.style.opacity = revealed ? "0.7" : "1";
   });
 
   // Results table
-  resultsBody.innerHTML = '';
+  resultsBody.innerHTML = "";
   const outliers = revealed ? getOutliers(users) : { high: [], low: [] };
-  users.forEach(user => {
-    const tr = document.createElement('tr');
+  users.forEach((user) => {
+    const tr = document.createElement("tr");
     const isMe = user.name === myName;
 
-    const nameTd = document.createElement('td');
+    const nameTd = document.createElement("td");
     const escapedName = escapeHtml(user.name);
     let nameHtml;
     if (outliers.high.includes(user.name)) {
@@ -363,16 +417,17 @@ function renderRoom(state) {
     } else {
       nameHtml = escapedName;
     }
-    if (user.isOwner) nameHtml += '<span class="organizer-label">organizer</span>';
-    if (isMe)        nameHtml += '<span class="you-label">you</span>';
+    if (user.isOwner)
+      nameHtml += '<span class="organizer-label">organizer</span>';
+    if (isMe) nameHtml += '<span class="you-label">you</span>';
     nameTd.innerHTML = nameHtml;
 
-    const voteTd = document.createElement('td');
+    const voteTd = document.createElement("td");
     let badge;
     if (revealed && user.vote !== null) {
-      let extraClass = '';
-      if (outliers.high.includes(user.name))      extraClass = ' outlier-high';
-      else if (outliers.low.includes(user.name))  extraClass = ' outlier-low';
+      let extraClass = "";
+      if (outliers.high.includes(user.name)) extraClass = " outlier-high";
+      else if (outliers.low.includes(user.name)) extraClass = " outlier-low";
       badge = `<span class="vote-badge revealed${extraClass}">${escapeHtml(String(user.vote))}</span>`;
     } else if (!revealed && user.vote !== null) {
       badge = `<span class="vote-badge voted">✓</span>`;
@@ -388,63 +443,64 @@ function renderRoom(state) {
 
   // Flash highlighted names on the moment of reveal
   if (revealed && !wasRevealed) {
-    document.querySelectorAll('.name-outlier').forEach(el => {
-      el.classList.add('outlier-flash');
-      setTimeout(() => el.classList.remove('outlier-flash'), 3000);
+    document.querySelectorAll(".name-outlier").forEach((el) => {
+      el.classList.add("outlier-flash");
+      setTimeout(() => el.classList.remove("outlier-flash"), 3000);
     });
   }
 
   // Stats after reveal
   if (revealed) {
     // Consensus: all voters (non-null) agree — ignores non-voters
-    const allVotes = users.map(u => u.vote).filter(v => v !== null);
-    const consensus = allVotes.length > 0 && allVotes.every(v => v === allVotes[0]);
+    const allVotes = users.map((u) => u.vote).filter((v) => v !== null);
+    const consensus =
+      allVotes.length > 0 && allVotes.every((v) => v === allVotes[0]);
     if (consensus && !wasRevealed) launchConfetti();
 
     const numericVotes = users
-      .map(u => u.vote)
-      .filter(v => v !== null && v !== '?' && v !== '☕')
-      .map(v => parseFloat(v))
-      .filter(v => !isNaN(v));
+      .map((u) => u.vote)
+      .filter((v) => v !== null && v !== "?" && v !== "☕")
+      .map((v) => parseFloat(v))
+      .filter((v) => !isNaN(v));
 
-    statsBar.classList.remove('hidden');
+    statsBar.classList.remove("hidden");
     if (numericVotes.length > 0) {
-      const avg = (numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length);
+      const avg = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
       const min = Math.min(...numericVotes);
       const max = Math.max(...numericVotes);
-      const allSame = numericVotes.every(v => v === numericVotes[0]);
+      const allSame = numericVotes.every((v) => v === numericVotes[0]);
       statAvg.textContent = nearestFibonacci(avg);
       statMin.textContent = min;
       statMax.textContent = max;
-      statConsensus.textContent = allSame ? '✓ Yes' : '✗ No';
-      statConsensus.style.color = allSame ? '#38a169' : '#e53e3e';
+      statConsensus.textContent = allSame ? "✓ Yes" : "✗ No";
+      statConsensus.style.color = allSame ? "#38a169" : "#e53e3e";
     } else {
-      statAvg.textContent = statMin.textContent = statMax.textContent = '—';
-      statConsensus.textContent = '—';
+      statAvg.textContent = statMin.textContent = statMax.textContent = "—";
+      statConsensus.textContent = "—";
     }
   } else {
-    statsBar.classList.add('hidden');
+    statsBar.classList.add("hidden");
   }
   wasRevealed = revealed;
 }
 
 function escapeHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Auto-join from URL param ──
 (function checkUrlRoom() {
   const params = new URLSearchParams(window.location.search);
-  const room = params.get('room');
+  const room = params.get("room");
   if (room) {
     // Switch to create tab and pre-fill room number
     document.querySelector('[data-tab="create"]').click();
     createRoomIdEl.value = room;
-    createRoomIdEl.removeAttribute('hidden');
+    createRoomIdEl.removeAttribute("hidden");
     createNameEl.focus();
   }
 })();
