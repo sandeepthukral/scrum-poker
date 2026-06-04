@@ -44,6 +44,7 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomId, name, create }) => {
     if (!roomId || !name) return;
+    if (!/^\d{1,20}$/.test(roomId)) return; // reject __proto__ and other dangerous keys
 
     // Reject joins to non-existent rooms
     if (!create && !rooms[roomId]) {
@@ -115,7 +116,7 @@ io.on('connection', (socket) => {
 
   socket.on('set-topic', ({ topic }) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].topic = topic || '';
+    rooms[currentRoom].topic = String(topic || '').slice(0, 200);
     broadcastRoomState(currentRoom);
   });
 
