@@ -1,8 +1,8 @@
 /* ── Scrum Poker Client ── */
 
-import "dotenv/config";
+// import "dotenv/config";
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+// const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 const CARD_VALUES = [
   "?",

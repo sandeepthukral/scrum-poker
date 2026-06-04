@@ -1,13 +1,12 @@
-name: Tests
+name: Main Pipeline
 
 on:
-  pull_request:
   push:
     branches:
       - main
 
 jobs:
-  test:
+  e2e_tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,4 +18,6 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
