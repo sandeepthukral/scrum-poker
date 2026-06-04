@@ -311,7 +311,7 @@ topicInput.addEventListener("input", () => {
 socket.on("room-state", state => {
   roomState = state;
   amIOwner = state.isOwner;
-  const me = state.users.find(u => u.name === myName);
+  const me = state.users.find(u => u.id === socket.id);
   if (me && me.vote === null) {
     myVote = null;
     updateCardHighlight();
@@ -366,7 +366,7 @@ function renderResultsTable(users, revealed) {
   const outliers = revealed ? getOutliers(users) : { high: [], low: [] };
   resultsBody.innerHTML = "";
   users.forEach(user => {
-    const isMe = user.name === myName;
+    const isMe = user.id === socket.id;
     const outlierClass = getOutlierClass(user.name, outliers);
 
     let nameHtml = outlierClass
