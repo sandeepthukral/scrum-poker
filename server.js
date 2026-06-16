@@ -17,7 +17,7 @@ function getRoomState(roomId) {
   const room = rooms[roomId];
   if (!room) return null;
   return {
-    users: Object.values(room.users).map(u => ({
+    users: Object.values(room.users).map(({ lastActivity, ...u }) => ({
       ...u,
       isOwner: u.id === room.ownerId,
     })),
@@ -73,6 +73,7 @@ io.on('connection', (socket) => {
       id: socket.id,
       name,
       vote: null,
+      lastActivity: Date.now(),
     };
 
     socket.join(roomId);
@@ -81,6 +82,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('cast-vote', ({ vote }) => {
+    if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
     if (!currentRoom || !rooms[currentRoom]) return;
     if (rooms[currentRoom].revealed) return; // can't vote after reveal
     rooms[currentRoom].users[socket.id].vote = vote;
@@ -88,6 +90,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('reveal', () => {
+    if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
     const room = rooms[currentRoom];
     if (!room) return;
     if (room.ownerId !== socket.id) return; // owner only
@@ -96,6 +99,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('delete-estimates', () => {
+    if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
     const room = rooms[currentRoom];
     if (!room) return;
     if (room.ownerId !== socket.id) return; // owner only
@@ -107,6 +111,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('transfer-ownership', ({ targetId }) => {
+    if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
     const room = rooms[currentRoom];
     if (!room || room.ownerId !== socket.id) return; // owner only
     if (!room.users[targetId]) return; // target must be in the room
@@ -115,6 +120,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('set-topic', ({ topic }) => {
+    if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].topic = String(topic || '').slice(0, 200);
     broadcastRoomState(currentRoom);
@@ -135,6 +141,30 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+const INACTIVITY_MS = 12 * 60 * 60 * 1000;
+
+function cleanupStaleUsers(cutoff = Date.now() - INACTIVITY_MS) {
+  for (const roomId of Object.keys(rooms)) {
+    const room = rooms[roomId];
+    for (const uid of Object.keys(room.users)) {
+      if (room.users[uid].lastActivity < cutoff) {
+        delete room.users[uid];
+        if (room.ownerId === uid) {
+          const remaining = Object.keys(room.users);
+          if (remaining.length > 0) room.ownerId = remaining[0];
+        }
+      }
+    }
+    if (Object.keys(room.users).length === 0) {
+      delete rooms[roomId];
+    } else {
+      broadcastRoomState(roomId);
+    }
+  }
+}
+
+setInterval(cleanupStaleUsers, 30 * 60 * 1000);
 
 // Generate a random room id
 app.get('/api/new-room', (req, res) => {

@@ -18,7 +18,7 @@ function createApp() {
     const room = rooms[roomId];
     if (!room) return null;
     return {
-      users: Object.values(room.users).map(u => ({ ...u, isOwner: u.id === room.ownerId })),
+      users: Object.values(room.users).map(({ lastActivity, ...u }) => ({ ...u, isOwner: u.id === room.ownerId })),
       revealed: room.revealed,
       topic: room.topic || '',
     };
@@ -54,13 +54,14 @@ function createApp() {
       if (!rooms[roomId]) {
         rooms[roomId] = { users: {}, ownerId: socket.id, revealed: false, topic: '' };
       }
-      rooms[roomId].users[socket.id] = { id: socket.id, name, vote: null };
+      rooms[roomId].users[socket.id] = { id: socket.id, name, vote: null, lastActivity: Date.now() };
       socket.join(roomId);
       socket.emit('joined', { roomId });
       broadcastRoomState(roomId);
     });
 
     socket.on('cast-vote', ({ vote }) => {
+      if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
       if (!currentRoom || !rooms[currentRoom]) return;
       if (rooms[currentRoom].revealed) return;
       rooms[currentRoom].users[socket.id].vote = vote;
@@ -68,6 +69,7 @@ function createApp() {
     });
 
     socket.on('reveal', () => {
+      if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
       const room = rooms[currentRoom];
       if (!room || room.ownerId !== socket.id) return;
       room.revealed = true;
@@ -75,6 +77,7 @@ function createApp() {
     });
 
     socket.on('delete-estimates', () => {
+      if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
       const room = rooms[currentRoom];
       if (!room || room.ownerId !== socket.id) return;
       room.revealed = false;
@@ -83,6 +86,7 @@ function createApp() {
     });
 
     socket.on('transfer-ownership', ({ targetId }) => {
+      if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
       const room = rooms[currentRoom];
       if (!room || room.ownerId !== socket.id) return;
       if (!room.users[targetId]) return;
@@ -91,6 +95,7 @@ function createApp() {
     });
 
     socket.on('set-topic', ({ topic }) => {
+      if (rooms[currentRoom]?.users[socket.id]) rooms[currentRoom].users[socket.id].lastActivity = Date.now();
       if (!currentRoom || !rooms[currentRoom]) return;
       rooms[currentRoom].topic = topic || '';
       broadcastRoomState(currentRoom);
@@ -114,7 +119,28 @@ function createApp() {
     res.json({ roomId });
   });
 
-  return { server, rooms };
+  const INACTIVITY_MS = 12 * 60 * 60 * 1000;
+  function cleanupStaleUsers(cutoff = Date.now() - INACTIVITY_MS) {
+    for (const roomId of Object.keys(rooms)) {
+      const room = rooms[roomId];
+      for (const uid of Object.keys(room.users)) {
+        if (room.users[uid].lastActivity < cutoff) {
+          delete room.users[uid];
+          if (room.ownerId === uid) {
+            const remaining = Object.keys(room.users);
+            if (remaining.length > 0) room.ownerId = remaining[0];
+          }
+        }
+      }
+      if (Object.keys(room.users).length === 0) {
+        delete rooms[roomId];
+      } else {
+        broadcastRoomState(roomId);
+      }
+    }
+  }
+
+  return { server, rooms, cleanupStaleUsers };
 }
 
 // ── Helpers ──
@@ -169,7 +195,7 @@ function doAndWaitState(socket, action) {
 }
 
 // ── Tests ──
-async function runTests(port, url) {
+async function runTests(port, url, rooms, cleanupStaleUsers) {
 
   // ── nearestFibonacci ──
   console.log('\n[Unit] nearestFibonacci');
@@ -680,18 +706,119 @@ async function runTests(port, url) {
     assert(true, 'no crash on missing fields');
     c.disconnect();
   }
+
+  // ── inactivity cleanup: stale user removed ──
+  console.log('\n[Cleanup] stale user removed from room');
+  {
+    const c1 = connect(port);
+    const c2 = connect(port);
+    await waitConnected(c1);
+    await waitConnected(c2);
+
+    await joinRoom(c1, '61616161', 'Alice', true);
+    await joinRoom(c2, '61616161', 'Bob', false);
+
+    // Backdate Alice to 13 hours ago
+    const aliceId = Object.keys(rooms['61616161'].users).find(id => rooms['61616161'].users[id].name === 'Alice');
+    rooms['61616161'].users[aliceId].lastActivity = Date.now() - 13 * 60 * 60 * 1000;
+
+    const stateP = nextEvent(c2, 'room-state');
+    cleanupStaleUsers(); // default cutoff: now - 12h
+    const state = await stateP;
+
+    assert(state.users.length === 1,                         'only Bob remains after Alice evicted');
+    assert(state.users[0].name === 'Bob',                    'remaining user is Bob');
+    assert(!state.users.some(u => u.name === 'Alice'),       'Alice not in room-state');
+    c1.disconnect();
+    c2.disconnect();
+  }
+
+  // ── inactivity cleanup: stale owner triggers ownership transfer ──
+  console.log('\n[Cleanup] stale owner → ownership transfers to next user');
+  {
+    const c1 = connect(port);
+    const c2 = connect(port);
+    await waitConnected(c1);
+    await waitConnected(c2);
+
+    await joinRoom(c1, '62626262', 'Alice', true);
+    await joinRoom(c2, '62626262', 'Bob', false);
+
+    // Backdate Alice (owner) to 13 hours ago
+    const aliceId = Object.keys(rooms['62626262'].users).find(id => rooms['62626262'].users[id].name === 'Alice');
+    rooms['62626262'].users[aliceId].lastActivity = Date.now() - 13 * 60 * 60 * 1000;
+
+    const stateP = nextEvent(c2, 'room-state');
+    cleanupStaleUsers(); // default cutoff: now - 12h
+    const state = await stateP;
+
+    assert(state.isOwner === true,                           'Bob receives isOwner:true');
+    assert(state.users.find(u => u.name === 'Bob').isOwner === true, 'Bob marked owner in users list');
+    c1.disconnect();
+    c2.disconnect();
+  }
+
+  // ── inactivity cleanup: all stale → room deleted ──
+  console.log('\n[Cleanup] all stale users → room deleted');
+  {
+    const c1 = connect(port);
+    const c2 = connect(port);
+    await waitConnected(c1);
+    await waitConnected(c2);
+
+    await joinRoom(c1, '63636363', 'Alice', true);
+    await joinRoom(c2, '63636363', 'Bob', false);
+
+    // Backdate both users to 13 hours ago
+    const staleTs = Date.now() - 13 * 60 * 60 * 1000;
+    for (const uid of Object.keys(rooms['63636363'].users)) {
+      rooms['63636363'].users[uid].lastActivity = staleTs;
+    }
+
+    cleanupStaleUsers(); // default cutoff: now - 12h
+    assert(rooms['63636363'] === undefined, 'room deleted when all users stale');
+    c1.disconnect();
+    c2.disconnect();
+  }
+
+  // ── inactivity cleanup: under threshold → not removed ──
+  console.log('\n[Cleanup] user under 12h threshold not removed');
+  {
+    const c1 = connect(port);
+    await waitConnected(c1);
+    await joinRoom(c1, '64646464', 'Alice', true);
+
+    // Backdate to 11 hours — under the 12h threshold
+    const aliceId = Object.keys(rooms['64646464'].users)[0];
+    rooms['64646464'].users[aliceId].lastActivity = Date.now() - 11 * 60 * 60 * 1000;
+
+    cleanupStaleUsers(); // default cutoff: now - 12h, Alice at 11h is safe
+    assert(rooms['64646464'] !== undefined,                   'room still exists');
+    assert(rooms['64646464'].users[aliceId] !== undefined,    'Alice still in room');
+    c1.disconnect();
+  }
+
+  // ── lastActivity not sent to clients ──
+  console.log('\n[Cleanup] lastActivity not exposed in room-state');
+  {
+    const c1 = connect(port);
+    await waitConnected(c1);
+    const { state } = await joinRoom(c1, '65656565', 'Alice', true);
+    assert(!('lastActivity' in state.users[0]),               'lastActivity absent from room-state user');
+    c1.disconnect();
+  }
 }
 
 // ── Main ──
 (async () => {
-  const { server } = createApp();
+  const { server, rooms, cleanupStaleUsers } = createApp();
   await new Promise(resolve => server.listen(0, resolve));
   const port = server.address().port;
   const url  = `http://localhost:${port}`;
   console.log(`Test server on port ${port}`);
 
   try {
-    await runTests(port, url);
+    await runTests(port, url, rooms, cleanupStaleUsers);
   } catch (e) {
     console.error('\nUnexpected error:', e.message);
     console.error(e.stack);
