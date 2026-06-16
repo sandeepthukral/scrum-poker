@@ -65,6 +65,13 @@ const participantCount = document.getElementById("participant-count");
 const confettiCanvas   = document.getElementById("confetti-canvas");
 const confettiCtx      = confettiCanvas.getContext("2d");
 
+// Pre-fill name inputs from previous session
+const _savedName = localStorage.getItem('scrumPokerName') || '';
+if (_savedName) {
+  createNameEl.value = _savedName;
+  joinNameEl.value   = _savedName;
+}
+
 // ── Utility helpers ──
 
 function submitOnEnter(input, btn) {
@@ -321,6 +328,7 @@ socket.on("room-state", state => {
 
 socket.on("joined", ({ roomId }) => {
   setJoinLoading(false);
+  localStorage.setItem('scrumPokerName', myName);
   enterRoom(roomId);
 });
 
