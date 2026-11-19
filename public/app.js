@@ -4,7 +4,6 @@
 const CARD_VALUES = ["?", "☕", "1", "2", "3", "5", "8", "13", "Too Large"];
 
 const DURATIONS = {
-  TOPIC_DEBOUNCE: 400,
   COPY_TOAST: 1800,
   OUTLIER_FLASH: 3000,
   CONFETTI: 4000,
@@ -15,8 +14,8 @@ const CONFETTI_COLORS = ["#4db6c1", "#f6c90e", "#ff6b6b", "#a8e063", "#9b59b6", 
 const CSS = {
   ACTIVE: "active",
   HIDDEN: "hidden",
-  HAS_TOPIC: "has-topic",
   SELECTED: "selected",
+  HAS_SELECTION: "has-selection",
   SHOW: "show",
   OUTLIER_HIGH: "outlier-high",
   OUTLIER_LOW: "outlier-low",
@@ -59,8 +58,6 @@ const userAvatar       = document.getElementById("user-avatar");
 const leaveBtn         = document.getElementById("leave-btn");
 const copyBtn          = document.getElementById("copy-room-btn");
 const copyToast        = document.getElementById("copy-toast");
-const topicInput       = document.getElementById("topic-input");
-const topicDisplay     = document.getElementById("topic-display");
 const participantCount = document.getElementById("participant-count");
 const confettiCanvas   = document.getElementById("confetti-canvas");
 const confettiCtx      = confettiCanvas.getContext("2d");
@@ -288,6 +285,7 @@ function updateCardHighlight() {
   document.querySelectorAll(".card").forEach(card => {
     card.classList.toggle(CSS.SELECTED, card.dataset.val === myVote);
   });
+  cardsGrid.classList.toggle(CSS.HAS_SELECTION, myVote !== null);
 }
 
 // ── Reveal / Delete ──
@@ -302,16 +300,6 @@ deleteBtn.addEventListener("click", () => {
 resultsBody.addEventListener("click", e => {
   const btn = e.target.closest("." + CSS.MAKE_ORGANIZER_BTN);
   if (btn) socket.emit("transfer-ownership", { targetId: btn.dataset.targetId });
-});
-
-// ── Topic ──
-let topicDebounce = null;
-topicInput.addEventListener("input", () => {
-  clearTimeout(topicDebounce);
-  topicDebounce = setTimeout(
-    () => socket.emit("set-topic", { topic: topicInput.value.trim() }),
-    DURATIONS.TOPIC_DEBOUNCE
-  );
 });
 
 // ── Socket events ──
@@ -338,12 +326,6 @@ socket.on("join-error", ({ message }) => {
 });
 
 // ── Render sub-functions ──
-
-function updateTopicDisplay(topic) {
-  topicDisplay.classList.toggle(CSS.HAS_TOPIC, !!topic);
-  topicDisplay.textContent = topic ? "📌 " + topic : "";
-  if (topicInput.value !== (topic || "")) topicInput.value = topic || "";
-}
 
 function updateParticipantCount(users) {
   const n = users.length;
@@ -433,8 +415,7 @@ function updateStatsDisplay(users, revealed) {
 }
 
 function renderRoom(state) {
-  const { users, revealed, topic, isOwner } = state;
-  updateTopicDisplay(topic);
+  const { users, revealed, isOwner } = state;
   updateParticipantCount(users);
   updateButtonStates(revealed, isOwner);
   updateCardInteractionState(revealed);
