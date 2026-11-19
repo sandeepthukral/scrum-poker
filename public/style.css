@@ -278,6 +278,7 @@ input[type="text"]:focus { border-color: var(--teal); }
 .card.selected::before, .card.selected::after { color: #fff; opacity: .4; }
 
 .card-coffee { font-size: 1.5rem; }
+.card[data-val="Too Large"] { font-size: 1.1rem; text-align: center; line-height: 1.2; white-space: normal; }
 
 /* ── Topic Section ── */
 .topic-section { margin-bottom: 28px; }
