@@ -1,7 +1,7 @@
 /* ── Scrum Poker Client ── */
 
 // ── Constants ──
-const CARD_VALUES = ["?", "☕", "0", "0.5", "1", "2", "3", "5", "8", "13", "20", "40", "100"];
+const CARD_VALUES = ["?", "☕", "1", "2", "3", "5", "8", "13", "Too Large"];
 
 const DURATIONS = {
   TOPIC_DEBOUNCE: 400,
